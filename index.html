@@ -61,8 +61,8 @@ h1{margin:0;font-size:27px;line-height:1.2}h2{font-size:17px;margin:0 0 13px}p{l
 <ol class="steps">
 <li>Apri il grafico con il pulsante sopra. Controlla che ticker e borsa corrispondano alla notifica.</li>
 <li>Premi <b>Trade</b> nella barra superiore, scegli <b>Paper Trading</b>, poi <b>Connetti</b>. Controlla che NON sia selezionato un broker reale.</li>
-<li>Attendi che il <b>trigger sia confermato</b>. Se il prezzo si è allontanato troppo, salta l'operazione. Un ordine <b>Buy Limit sopra il prezzo corrente</b> può eseguire subito: non usarlo per aspettare un breakout.</li>
-<li>Quando le condizioni sono ancora valide, premi <b>Acquista / Buy</b>. Nel ticket seleziona <b>Mercato</b> (esecuzione immediata, prezzo non garantito) oppure <b>Limite</b> (prezzo massimo pagabile, esecuzione non garantita).</li>
+<li>Attendi che il <b>trigger sia confermato</b>. Se il prezzo si è allontanato troppo, salta l'operazione. Un ordine <b>Buy Limit sopra il prezzo corrente</b> può eseguire subito; per uno SHORT un <b>Sell Limit sotto il prezzo corrente</b> può eseguire subito: non usarlo per aspettare un breakout.</li>
+<li>Quando le condizioni sono ancora valide, per un <b>LONG</b> premi <b>Acquista / Buy</b>; per uno <b>SHORT</b> premi <b>Vendi / Sell</b>, dopo aver verificato che il Paper Trading ammetta vendite short e margine. Nel ticket seleziona <b>Mercato</b> (esecuzione immediata, prezzo non garantito) oppure <b>Limite</b> (prezzo massimo pagabile, esecuzione non garantita).</li>
 <li>Imposta <b>Quantità</b>, <b>Stop Loss</b> e <b>Take Profit</b> copiandoli dalla scheda. Se TradingView non accetta i decimali del prezzo, adeguali al tick valido e <b>ricalcola qui il rischio</b> prima di confermare.</li>
 <li>Con il <b>trading con un clic disattivato</b>, verifica l'anteprima, poi conferma solo nel <b>Paper Trading</b>. In <b>Posizioni</b> controlla l'effettiva presenza di TP e SL.</li>
 </ol>
@@ -75,7 +75,7 @@ h1{margin:0;font-size:27px;line-height:1.2}h2{font-size:17px;margin:0 0 13px}p{l
 <p>☐ Nessun altro ordine/posizione che consumi il budget demo</p>
 <p>☐ Prezzi compatibili con il tick del titolo, spread e slippage accettabili</p>
 <p>☐ Capitale disponibile entro 400 € e rischio teorico aggregato entro 12 €</p>
-<p class="mini">Il valore 12 € è un obiettivo del modello, non un limite garantito. Uno stop può eseguire peggio del prezzo previsto. Scheda educativa: nessun invio di ordini, nessun tracciamento, nessuna API finanziaria.</p>
+<p class="mini">Gli SHORT sono solo simulazioni: possono richiedere margine, disponibilità al prestito e comportare perdite potenzialmente illimitate, anche con uno stop impostato. Il valore 12 € è un obiettivo del modello, non un limite garantito. Uno stop può eseguire peggio del prezzo previsto. Scheda educativa: nessun invio di ordini, nessun tracciamento, nessuna API finanziaria.</p>
 </section>
 </main>
 <script>
@@ -85,7 +85,7 @@ const byId = id=>document.getElementById(id);
 const formatEUR = x=>Number.isFinite(x)?x.toLocaleString('it-IT',{style:'currency',currency:'EUR'}):'—';
 const nice = x=>Number.isFinite(x)?x.toLocaleString('it-IT',{maximumFractionDigits:2,minimumFractionDigits:2}):'—';
 const ticker=(p.get('ticker')||'').toUpperCase(), ex=p.get('ex')||'', side=p.get('side')||'LONG';
-const legit=/^[A-Z][A-Z0-9.-]{0,8}$/.test(ticker)&&['NASDAQ','NYSE',''].includes(ex)&&side==='LONG';
+const legit=/^[A-Z][A-Z0-9.-]{0,8}$/.test(ticker)&&['NASDAQ','NYSE',''].includes(ex)&&['LONG','SHORT'].includes(side);
 const origin=(p.get('origin')||'NOSTRA').slice(0,30), strategy=(p.get('strategy')||'').slice(0,60);
 const num=name=>Number(p.get(name));
 const signalTs=p.get('ts')||''; const date=signalTs ? new Date(signalTs):new Date(NaN);
@@ -105,19 +105,21 @@ if(!legit || !Number.isFinite(date.getTime()) || ![num('entry'),num('stop'),num(
     const e=Number(byId('entry').value),s=Number(byId('stop').value),t=Number(byId('target').value),q=Number(byId('qty').value);
     const old=(Date.now()-date.getTime())/60000;
     const timeOk=old>=-5&&old<=20;
-    const valsOk=[e,s,t,q].every(x=>Number.isFinite(x)&&x>0) && Number.isInteger(q)&&q<=maxQty&&e>s&&t>e;
+    const valsOk=[e,s,t,q].every(x=>Number.isFinite(x)&&x>0) && Number.isInteger(q)&&q<=maxQty&&(side==='LONG'?(e>s&&t>e):(s>e&&e>t));
     let risk=NaN,cap=NaN,rr=NaN;
     const notes=[];
     if(!timeOk){
       notice('stale',old>20?'Segnale vecchio: sono passati più di 20 minuti dalla candela 5m. Questa scheda è solo uno storico: non inviare ordini sulla base di questi prezzi.':'Ora del dispositivo o segnale da verificare: nessuna operatività suggerita.','bad');
     }else{notice('stale','Segnale recente secondo l’orologio del dispositivo. È comunque obbligatoria la verifica del prezzo su TradingView.','good')}
-    if(!valsOk)notes.push('Controlla prezzi e quantità: per un long serve Stop < Ingresso < Target e quantità intera non superiore alla proposta.');
+    if(!valsOk)notes.push('Controlla prezzi e quantità: per LONG serve Stop < Ingresso < Target; per SHORT Target < Ingresso < Stop e quantità intera non superiore alla proposta.');
     if(valsOk){
-      const entryFill=e+Math.max(.01,e*.001), stopFill=s-Math.max(.01,s*.001);
-      const targetFill=t-Math.max(.01,entryFill*.001);
-      cap=q*entryFill/fx+1;
-      risk=q*(entryFill-stopFill)/fx+2;
-      const reward=q*(targetFill-entryFill)/fx-2;
+      const entrySlip=Math.max(.01,e*.001), stopSlip=Math.max(.01,s*.001);
+      const entryFill=side==='LONG'?e+entrySlip:e-entrySlip;
+      const stopFill=side==='LONG'?s-stopSlip:s+stopSlip;
+      const targetFill=side==='LONG'?t-Math.max(.01,entryFill*.001):t+Math.max(.01,entryFill*.001);
+      cap=q*(side==='LONG'?entryFill:e+entrySlip)/fx+1;
+      risk=q*(side==='LONG'?(entryFill-stopFill):(stopFill-entryFill))/fx+2;
+      const reward=q*(side==='LONG'?(targetFill-entryFill):(entryFill-targetFill))/fx-2;
       rr=risk>0?reward/risk:NaN;
       if(cap>400)notes.push('Capitale stimato oltre 400 €: riduci quantità o salta.');
       if(risk>12)notes.push('Rischio teorico della singola idea oltre 12 €: non procedere.');
