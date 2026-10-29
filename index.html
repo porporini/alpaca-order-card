@@ -33,11 +33,13 @@ h1{margin:0;font-size:27px;line-height:1.2}h2{font-size:17px;margin:0 0 13px}p{l
  <p class="muted" id="origin"></p>
  <div class="notice bad hide" id="invalid"></div>
  <div class="notice hide" id="stale"></div>
+ <div class="notice hide" id="entryPlan"></div>
+ <p class="mini hide" id="fibonacci"></p>
  <div class="notice" style="background:#19283a;border-color:#416c90;color:#c9e9ff">Questa pagina <b>non legge prezzi in tempo reale, non accede al tuo account e non invia ordini</b>. I valori derivano dal messaggio Telegram e possono non essere più validi. Controlla sempre il grafico.</div>
 </section>
 <section class="card" id="tradeContent">
  <h2>1. Controlla e copia i valori</h2>
- <p class="mini">Puoi correggere ingresso, stop, target e quantità prima di copiarli. Se cambi il prezzo d'ingresso, i calcoli vengono aggiornati.</p>
+ <p class="mini">I calcoli si aggiornano se modifichi i campi. Le modifiche locali non aggiornano lo scanner. Il piano scade all’orario indicato e vale solo entro il limite di prezzo.</p>
  <div class="grid">
   <div class="field"><label for="entry">Ingresso indicativo · USD</label><input id="entry" type="number" min="0" step="any" inputmode="decimal"><button data-copy="entry">Copia ingresso</button></div>
   <div class="field"><label for="qty">Quantità · azioni intere</label><input id="qty" type="number" min="1" step="1" inputmode="numeric"><button data-copy="qty">Copia quantità</button></div>
@@ -62,7 +64,7 @@ h1{margin:0;font-size:27px;line-height:1.2}h2{font-size:17px;margin:0 0 13px}p{l
 <li>Apri il grafico con il pulsante sopra. Controlla che ticker e borsa corrispondano alla notifica.</li>
 <li>Premi <b>Trade</b> nella barra superiore, scegli <b>Paper Trading</b>, poi <b>Connetti</b>. Controlla che NON sia selezionato un broker reale.</li>
 <li>Attendi che il <b>trigger sia confermato</b>. Se il prezzo si è allontanato troppo, salta l'operazione. Un ordine <b>Buy Limit sopra il prezzo corrente</b> può eseguire subito; per uno SHORT un <b>Sell Limit sotto il prezzo corrente</b> può eseguire subito: non usarlo per aspettare un breakout.</li>
-<li>Quando le condizioni sono ancora valide, per un <b>LONG</b> premi <b>Acquista / Buy</b>; per uno <b>SHORT</b> premi <b>Vendi / Sell</b>, dopo aver verificato che il Paper Trading ammetta vendite short e margine. Nel ticket seleziona <b>Mercato</b> (esecuzione immediata, prezzo non garantito) oppure <b>Limite</b> (prezzo massimo pagabile, esecuzione non garantita).</li>
+<li>Quando le condizioni sono ancora valide, per un <b>LONG</b> premi <b>Acquista / Buy</b>; per uno <b>SHORT</b> premi <b>Vendi / Sell</b>, dopo aver verificato che il Paper Trading ammetta vendite short e margine. Dopo la conferma del trigger valuta un ordine <b>Limite</b> entro il prezzo indicato, con TP/SL e anteprima. Un ordine a mercato non garantisce il prezzo del piano; un limite può non essere eseguito.</li>
 <li>Imposta <b>Quantità</b>, <b>Stop Loss</b> e <b>Take Profit</b> copiandoli dalla scheda. Se TradingView non accetta i decimali del prezzo, adeguali al tick valido e <b>ricalcola qui il rischio</b> prima di confermare.</li>
 <li>Con il <b>trading con un clic disattivato</b>, verifica l'anteprima, poi conferma solo nel <b>Paper Trading</b>. In <b>Posizioni</b> controlla l'effettiva presenza di TP e SL.</li>
 </ol>
@@ -70,6 +72,8 @@ h1{margin:0;font-size:27px;line-height:1.2}h2{font-size:17px;margin:0 0 13px}p{l
 <p class="mini">Da smartphone i pulsanti possono essere in posizioni diverse; apri il grafico e usa il ticket Buy/Sell. Non attivare l'opzione di invio immediato degli ordini.</p>
 </section>
 <section class="card"><h2>3. Prima di simulare, verifica</h2>
+<p>☐ Nessuna sospensione attiva: ricontrolla sul broker e su Nasdaq Trader</p>
+<p>☐ Prezzo entro il limite del piano e ingresso non scaduto</p>
 <p>☐ Dati del segnale recenti e candela 5 minuti verificata sul grafico</p>
 <p>☐ Conto <b>Paper Trading</b> selezionato</p>
 <p>☐ Nessun altro ordine/posizione che consumi il budget demo</p>
@@ -90,8 +94,14 @@ const origin=(p.get('origin')||'NOSTRA').slice(0,30), strategy=(p.get('strategy'
 const num=name=>Number(p.get(name));
 const signalTs=p.get('ts')||''; const date=signalTs ? new Date(signalTs):new Date(NaN);
 const fx=num('fx'); const maxQty=num('qty');
+const newPlan=p.get('plan')==='3.12';
+const deadline=new Date(p.get('deadline')||'');
+const boundary=num('bound');
+const planOk=!newPlan || (Number.isFinite(deadline.getTime()) && Number.isFinite(boundary) && boundary>0 && (side==='LONG'?boundary>=num('entry'):boundary<=num('entry')));
+const copyButtons=[...document.querySelectorAll('[data-copy]')];
+if(!planOk)copyButtons.forEach(btn=>btn.disabled=true);
 function notice(id,txt,kind){const n=byId(id);n.textContent=txt;n.classList.remove('hide','good','bad');if(kind)n.classList.add(kind)}
-if(!legit || !Number.isFinite(date.getTime()) || ![num('entry'),num('stop'),num('target'),num('qty'),fx].every(x=>Number.isFinite(x)&&x>0)|| !Number.isInteger(maxQty)||maxQty>100000 || fx<0.2 || fx>10){
+if(!legit || !planOk || !Number.isFinite(date.getTime()) || ![num('entry'),num('stop'),num('target'),num('qty'),fx].every(x=>Number.isFinite(x)&&x>0)|| !Number.isInteger(maxQty)||maxQty>100000 || fx<0.2 || fx>10){
   notice('invalid','I parametri della scheda sono incompleti o non validi. Non utilizzare questi valori.','bad');
   byId('tradeContent').classList.add('hide'); byId('title').textContent='Scheda non valida';
 }else{
@@ -99,18 +109,28 @@ if(!legit || !Number.isFinite(date.getTime()) || ![num('entry'),num('stop'),num(
   byId('origin').textContent=`Strategia ${origin}: ${strategy.replaceAll('_',' ')} · ${ex||'Borsa da verificare'}`;
   for(const [id,param] of [['entry','entry'],['qty','qty'],['stop','stop'],['target','target']])byId(id).value=p.get(param)||'';
   byId('timestamp').textContent=`Timestamp candela IEX del segnale: ${date.toLocaleString('it-IT',{timeZone:'Europe/Rome',dateStyle:'medium',timeStyle:'short'})} (ora italiana). Ultimo controllo aggiornamento: manuale sul grafico.`;
+  if(newPlan){
+    notice('entryPlan',(side==='LONG'?'Non pagare oltre ':'Non vendere sotto ')+boundary+' USD. Ingresso entro '+deadline.toLocaleString('it-IT',{timeZone:'Europe/Rome',dateStyle:'medium',timeStyle:'short'})+' (ora italiana). Scadenza relativa a nuovi ingressi; una posizione aperta richiede gestione di TP/SL.');
+  }
+  const fa=num('fibstart'),fb=num('fibend');
+  if(fa>0&&fb>0&&fa!==fb){
+    const levels=[.382,.5,.618].map(r=>`${nice(r*100)}%: ${+(fb-(fb-fa)*r).toFixed(6)} USD`).join(' · ');
+    byId('fibonacci').textContent=`Fibonacci di contesto · ancore ${fa} → ${fb} USD. ${levels}. Non è una conferma di ingresso.`;
+    byId('fibonacci').classList.remove('hide');
+  }
   const tvsymbol=(ex ? ex+':' : '')+ticker;
   byId('tv').href='https://www.tradingview.com/chart/?'+new URLSearchParams({symbol:tvsymbol,interval:'5'}).toString();
   function recalc(){
     const e=Number(byId('entry').value),s=Number(byId('stop').value),t=Number(byId('target').value),q=Number(byId('qty').value);
     const old=(Date.now()-date.getTime())/60000;
-    const timeOk=old>=-5&&old<=20;
+    const timeOk=old>=-5&&old<=20&&(!newPlan || Date.now()<deadline.getTime());
     const valsOk=[e,s,t,q].every(x=>Number.isFinite(x)&&x>0) && Number.isInteger(q)&&q<=maxQty&&(side==='LONG'?(e>s&&t>e):(s>e&&e>t));
     let risk=NaN,cap=NaN,rr=NaN;
     const notes=[];
     if(!timeOk){
-      notice('stale',old>20?'Segnale vecchio: sono passati più di 20 minuti dalla candela 5m. Questa scheda è solo uno storico: non inviare ordini sulla base di questi prezzi.':'Ora del dispositivo o segnale da verificare: nessuna operatività suggerita.','bad');
+      notice('stale',newPlan&&Date.now()>=deadline.getTime()?'Piano scaduto: non aprire una nuova posizione. Usa la scheda solo come storico.':old>20?'Segnale vecchio: sono passati più di 20 minuti dalla candela 5m. Questa scheda è solo uno storico: non inviare ordini sulla base di questi prezzi.':'Ora del dispositivo o segnale da verificare: nessuna operatività suggerita.','bad');
     }else{notice('stale','Segnale recente secondo l’orologio del dispositivo. È comunque obbligatoria la verifica del prezzo su TradingView.','good')}
+    if(newPlan && (side==='LONG'?(e<num('entry')||e>boundary):(e>num('entry')||e<boundary)))notes.push('Prezzo fuori dall’intervallo di ingresso del piano: serve una nuova analisi.');
     if(!valsOk)notes.push('Controlla prezzi e quantità: per LONG serve Stop < Ingresso < Target; per SHORT Target < Ingresso < Stop e quantità intera non superiore alla proposta.');
     if(valsOk){
       const entrySlip=Math.max(.01,e*.001), stopSlip=Math.max(.01,s*.001);
@@ -121,6 +141,7 @@ if(!legit || !Number.isFinite(date.getTime()) || ![num('entry'),num('stop'),num(
       risk=q*(side==='LONG'?(entryFill-stopFill):(stopFill-entryFill))/fx+2;
       const reward=q*(side==='LONG'?(targetFill-entryFill):(entryFill-targetFill))/fx-2;
       rr=risk>0?reward/risk:NaN;
+      if(newPlan && (risk>num('risk')+.005 || cap>num('capital')+.005))notes.push('La modifica supera la quota di rischio/capitale prenotata per questa ipotesi.');
       if(cap>400)notes.push('Capitale stimato oltre 400 €: riduci quantità o salta.');
       if(risk>12)notes.push('Rischio teorico della singola idea oltre 12 €: non procedere.');
       if(rr<2)notes.push('Rendimento/rischio netto stimato sotto 2:1: il prezzo è cambiato troppo.');
@@ -133,17 +154,19 @@ if(!legit || !Number.isFinite(date.getTime()) || ![num('entry'),num('stop'),num(
     byId('checks').classList.toggle('hide',notes.length===0);
     byId('checks').classList.toggle('bad',notes.length>0);
     byId('checks').textContent=notes.join(' ');
-    byId('copyAll').disabled=!valsOk || !timeOk;
-    return {e,s,t,q,cap,risk,rr,old};
+    const allowed=valsOk&&timeOk&&notes.length===0;
+    byId('copyAll').disabled=!allowed;
+    copyButtons.forEach(btn=>btn.disabled=!allowed);
+    return {e,s,t,q,cap,risk,rr,old,allowed};
   }
   async function copy(text){
     try{await navigator.clipboard.writeText(text)}catch(err){
       const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.top='-1000px';document.body.append(ta);ta.select();document.execCommand('copy');ta.remove();
     }
   }
-  document.querySelectorAll('[data-copy]').forEach(btn=>btn.addEventListener('click',async()=>{const id=btn.dataset.copy;await copy(byId(id).value);const prev=btn.textContent;btn.textContent='✓ Copiato';setTimeout(()=>btn.textContent=prev,1200)}));
+  document.querySelectorAll('[data-copy]').forEach(btn=>btn.addEventListener('click',async()=>{if(!recalc().allowed)return;const id=btn.dataset.copy;await copy(byId(id).value);const prev=btn.textContent;btn.textContent='✓ Copiato';setTimeout(()=>btn.textContent=prev,1200)}));
   byId('copyAll').addEventListener('click',async()=>{
-    const x=recalc();if(!Number.isInteger(x.q)||x.q<1)return;
+    const x=recalc();if(!x.allowed)return;
     const data=`SOLO DEMO ${ticker} ${side} (${ex||'borsa da verificare'}) | ${origin}: ${strategy}\nIngresso USD: ${x.e}\nQuantità: ${x.q}\nStop USD: ${x.s}\nTarget USD: ${x.t}\nCapitale modello EUR: ${nice(x.cap)}\nRischio modello EUR: ${nice(x.risk)}\nR/R netto modello: ${nice(x.rr)}\nSegnale IEX: ${signalTs}\nConfermare prezzo e protezioni sul Paper Trading. NON è un ordine.`;
     await copy(data);byId('copyAll').textContent='✓ Riepilogo copiato';setTimeout(()=>byId('copyAll').textContent='📋 Copia riepilogo',1400);
   });
