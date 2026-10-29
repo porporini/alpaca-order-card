@@ -33,6 +33,7 @@ h1{margin:0;font-size:27px;line-height:1.2}h2{font-size:17px;margin:0 0 13px}p{l
  <p class="muted" id="origin"></p>
  <div class="notice bad hide" id="invalid"></div>
  <div class="notice hide" id="stale"></div>
+ <div class="notice hide" id="layoutTest"></div>
  <div class="notice hide" id="entryPlan"></div>
  <p class="mini hide" id="fibonacci"></p>
  <div class="notice" style="background:#19283a;border-color:#416c90;color:#c9e9ff">Questa pagina <b>non legge prezzi in tempo reale, non accede al tuo account e non invia ordini</b>. I valori derivano dal messaggio Telegram e possono non essere più validi. Controlla sempre il grafico.</div>
@@ -94,6 +95,7 @@ const origin=(p.get('origin')||'NOSTRA').slice(0,30), strategy=(p.get('strategy'
 const num=name=>Number(p.get(name));
 const signalTs=p.get('ts')||''; const date=signalTs ? new Date(signalTs):new Date(NaN);
 const fx=num('fx'); const maxQty=num('qty');
+const layoutTest=p.get('test')==='1';
 const newPlan=p.get('plan')==='3.12';
 const deadline=new Date(p.get('deadline')||'');
 const boundary=num('bound');
@@ -101,6 +103,7 @@ const planOk=!newPlan || (Number.isFinite(deadline.getTime()) && Number.isFinite
 const copyButtons=[...document.querySelectorAll('[data-copy]')];
 if(!planOk)copyButtons.forEach(btn=>btn.disabled=true);
 function notice(id,txt,kind){const n=byId(id);n.textContent=txt;n.classList.remove('hide','good','bad');if(kind)n.classList.add(kind)}
+if(layoutTest)notice('layoutTest','TEST DI IMPAGINAZIONE — Prezzi inventati, nessun candidato reale. Copia disabilitata; puoi provare il link al grafico.','bad');
 if(!legit || !planOk || !Number.isFinite(date.getTime()) || ![num('entry'),num('stop'),num('target'),num('qty'),fx].every(x=>Number.isFinite(x)&&x>0)|| !Number.isInteger(maxQty)||maxQty>100000 || fx<0.2 || fx>10){
   notice('invalid','I parametri della scheda sono incompleti o non validi. Non utilizzare questi valori.','bad');
   byId('tradeContent').classList.add('hide'); byId('title').textContent='Scheda non valida';
@@ -154,7 +157,7 @@ if(!legit || !planOk || !Number.isFinite(date.getTime()) || ![num('entry'),num('
     byId('checks').classList.toggle('hide',notes.length===0);
     byId('checks').classList.toggle('bad',notes.length>0);
     byId('checks').textContent=notes.join(' ');
-    const allowed=valsOk&&timeOk&&notes.length===0;
+    const allowed=valsOk&&timeOk&&notes.length===0&&!layoutTest;
     byId('copyAll').disabled=!allowed;
     copyButtons.forEach(btn=>btn.disabled=!allowed);
     return {e,s,t,q,cap,risk,rr,old,allowed};

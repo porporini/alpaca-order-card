@@ -35,4 +35,7 @@ assert.match(page.get('invalid').textContent,/non validi/);
 assert.ok(page.buttons.every(b=>b.disabled));
 page=load({qty:'100000'});assert.equal(page.get('copyAll').disabled,true,'risk breach blocks copy');
 page=load({plan:'',deadline:'',bound:''});assert.equal(page.get('copyAll').disabled,false,'legacy links remain usable when risk is valid');
-console.log('8 order-card behavior checks passed');
+page=load({test:'1'});assert.equal(page.get('copyAll').disabled,true,'layout tests never offer copyable fictitious orders');
+assert.match(page.get('layoutTest').textContent,/Prezzi inventati/);
+assert.match(page.get('tv').href,/tradingview.com/);
+console.log('9 order-card behavior checks passed');
