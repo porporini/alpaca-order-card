@@ -1,0 +1,44 @@
+<!doctype html><html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://s3.tradingview.com; style-src 'unsafe-inline'; frame-src https://www.tradingview-widget.com https://s.tradingview.com https://www.tradingview.com; connect-src 'none'; img-src data:; base-uri 'none'; form-action 'none'">
+<title>Piano Paper · grafici</title><style>body{margin:0;padding:18px;background:#0b1020;color:#e8eef8;font:15px system-ui}main{max-width:1100px;margin:auto}h1{font-size:24px}p{color:#b7c7de;line-height:1.5}a{color:#8dc9ff}canvas{width:100%;background:#121b30;border-radius:12px}section{margin:24px 0}.legend{display:flex;gap:16px;flex-wrap:wrap}.pill{padding:6px 12px;background:#1c2e49;border-radius:8px}#widget{height:560px}.error{color:#ffb5b5}</style>
+<main><h1 id="title">Grafico del piano Paper</h1><p id="note">Caricamento della fotografia tecnica…</p><p id="links"></p><section><h2>Fotografia del piano · IEX 5 minuti</h2><div class="legend"><span style="color:#5ab8ff">EMA20</span><span style="color:#ce97ff">EMA50</span><span style="color:#ffb85c">VWAP</span><span style="color:#6ad9b6">Fibonacci</span></div><canvas id="chart" width="1100" height="660"></canvas><p>Livelli e indicatori già predisposti dal programma. La fotografia non aggiorna i prezzi e non inserisce ordini. RSI14 e ATR14 sono nei pannelli inferiori.</p></section><section><h2>Grafico TradingView interattivo</h2><p>Widget esterno con EMA, RSI e VWAP predisposti. Le impostazioni del widget possono differire dalla fotografia IEX e dal tuo account TradingView. Fibonacci del piano è mostrato sopra; il widget non importa disegni o Pine nel tuo account.</p><div id="widget" class="tradingview-widget-container"><div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div></div></section></main>
+<script>
+'use strict';
+function validate(data){
+ if(!data||! /^[A-Z][A-Z0-9.\-]{0,8}$/.test(data.symbol)||!['NASDAQ','NYSE',''].includes(data.exchange)||!Array.isArray(data.bars)||data.bars.length<1||data.bars.length>72)throw Error('Dati non validi');
+ for(const row of data.bars){if(!Array.isArray(row)||row.length!==11||row.some((n,i)=>n!==null&&(!Number.isFinite(n)||Math.abs(n)>1e12))||![row[0],row[1],row[2],row[3],row[4]].every(n=>Number.isFinite(n)&&n>0)||row[2]<row[3])throw Error('Candele non valide');}
+ for(const key of ['entry','stop','target'])if(!Number.isFinite(Number(data[key]))||Number(data[key])<=0)throw Error('Livelli non validi');
+ if(!Array.isArray(data.fib)||data.fib.length!==2||data.fib.some(n=>n!==null&&(!Number.isFinite(n)||n<=0)))throw Error('Ancore non valide');
+ return data;
+}
+async function decode(hash){
+ if(hash.length>16000)throw Error('Link troppo lungo');
+ const b64=hash.replace(/-/g,'+').replace(/_/g,'/');const raw=Uint8Array.from(atob(b64+'='.repeat((4-b64.length%4)%4)),c=>c.charCodeAt(0));
+ const stream=new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate'));const reader=stream.getReader();let chunks=[],count=0;
+ while(true){const r=await reader.read();if(r.done)break;count+=r.value.length;if(count>200000){reader.cancel();throw Error('Dati troppo grandi');}chunks.push(r.value);}
+ const text=await new Blob(chunks).text();return validate(JSON.parse(text));
+}
+function draw(data){
+ const cv=document.getElementById('chart'),g=cv.getContext('2d'),bars=data.bars,n=bars.length,left=12,right=1010;
+ g.clearRect(0,0,1100,660);g.font='12px system-ui';
+ const fib=data.fib.every(Number.isFinite)&&data.fib[0]!==data.fib[1]?[.236,.382,.5,.618,.786].map(r=>[r,data.fib[1]-(data.fib[1]-data.fib[0])*r]):[];
+ const prices=bars.flatMap(b=>[b[2],b[3],b[6],b[7],b[8]]).filter(Number.isFinite).concat([Number(data.entry),Number(data.stop),Number(data.target)],fib.map(x=>x[1]));
+ let min=Math.min(...prices),max=Math.max(...prices);const pad=Math.max((max-min)*.08,.01);min-=pad;max+=pad;
+ const px=i=>left+(i+.5)*(right-left)/n,py=v=>30+(max-v)/(max-min)*340;
+ function line(values,color,y){g.strokeStyle=color;g.lineWidth=1.6;g.beginPath();let pen=false;values.forEach((v,i)=>{if(!Number.isFinite(v)){pen=false;return;}if(pen)g.lineTo(px(i),y(v));else g.moveTo(px(i),y(v));pen=true;});g.stroke();}
+ function horizontal(value,label,color){g.strokeStyle=color;g.setLineDash([4,4]);g.beginPath();g.moveTo(left,py(value));g.lineTo(right,py(value));g.stroke();g.setLineDash([]);g.fillStyle=color;g.fillText(label+' '+value.toFixed(3),right+6,py(value)+4);}
+ bars.forEach((b,i)=>{g.strokeStyle=g.fillStyle=b[4]>=b[1]?'#6ad9b6':'#ff829c';g.beginPath();g.moveTo(px(i),py(b[2]));g.lineTo(px(i),py(b[3]));g.stroke();g.fillRect(px(i)-Math.max(2,(right-left)/n*.28),Math.min(py(b[1]),py(b[4])),Math.max(4,(right-left)/n*.56),Math.max(1,Math.abs(py(b[1])-py(b[4]))));});
+ line(bars.map(b=>b[6]),'#5ab8ff',py);line(bars.map(b=>b[7]),'#ce97ff',py);line(bars.map(b=>b[8]),'#ffb85c',py);
+ fib.forEach(([r,v])=>horizontal(v,(r*100).toFixed(1)+'%','#6ad9b6'));
+ horizontal(Number(data.entry),'Ingresso','#5ab8ff');horizontal(Number(data.stop),'Stop','#ff829c');horizontal(Number(data.target),'Target','#ffdb72');
+ const ry=v=>450+(100-v)/100*90;g.fillStyle='#dbe8fc';g.fillText('RSI14',12,420);[30,70].forEach(v=>{g.strokeStyle='#364762';g.beginPath();g.moveTo(left,ry(v));g.lineTo(right,ry(v));g.stroke();});line(bars.map(b=>b[9]),'#a5a4ff',ry);
+ const ats=bars.map(b=>b[10]).filter(Number.isFinite),am=Math.max(.00001,...ats);g.fillStyle='#dbe8fc';g.fillText('ATR14 · USD',12,565);line(bars.map(b=>b[10]),'#ffb85c',v=>630-v/am*55);
+ g.fillStyle='#a5b9d6';g.fillText(new Date(bars[0][0]*1000).toLocaleString('it-IT',{timeZone:'Europe/Rome'}),12,650);g.fillText(new Date(bars[n-1][0]*1000).toLocaleString('it-IT',{timeZone:'Europe/Rome'}),790,650);
+}
+async function start(){try{const data=await decode(location.hash.slice(1));document.getElementById('title').textContent=data.symbol+' · piano Alpaca Paper';document.getElementById('note').textContent='Fotografia IEX del '+new Date(data.created).toLocaleString('it-IT',{timeZone:'Europe/Rome'})+' (ora italiana). Nessun dato di accesso è presente nel link.';
+ const symbol=(data.exchange?data.exchange+':':'')+data.symbol;
+ for(const [label,url] of [['Apri Alpaca (seleziona PAPER)','https://app.alpaca.markets/trade/'+data.symbol],['Apri TradingView completo','https://www.tradingview.com/chart/?'+new URLSearchParams({symbol,interval:'5'})]]){const a=document.createElement('a');a.textContent=label;a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.className='pill';document.getElementById('links').append(a,' ');}
+ draw(data);const script=document.createElement('script');script.src='https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';script.async=true;script.textContent=JSON.stringify({autosize:true,symbol,interval:'5',timezone:'Europe/Rome',theme:'dark',style:'1',locale:'it',allow_symbol_change:true,hide_side_toolbar:false,studies:['STD;EMA','STD;RSI','STD;VWAP'],support_host:'https://www.tradingview.com'});document.getElementById('widget').append(script);
+ }catch(error){document.getElementById('note').textContent='Fotografia non disponibile o link non valido. Non usare questo grafico per decidere un ingresso.';document.getElementById('note').className='error';}}
+start();
+</script></html>

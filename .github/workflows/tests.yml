@@ -12,3 +12,4 @@ jobs:
         with:
           persist-credentials: false
       - run: node test_card.cjs
+      - run: node test_chart.cjs
