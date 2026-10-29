@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'">
+<title>Alpaca Scanner · Scheda ordine DEMO</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b1020;color:#e8eef8}
+*{box-sizing:border-box}body{margin:0;padding:0 14px 45px}main{max-width:760px;margin:0 auto}
+.top{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:22px 0 14px}.brand{font-weight:750;letter-spacing:.2px;font-size:19px}
+.pill{font-size:11px;border:1px solid #6488a1;color:#aed9f7;border-radius:100px;padding:6px 9px;white-space:nowrap}
+.card{border:1px solid #29334e;background:#151e34;border-radius:14px;padding:18px;margin-bottom:13px}
+h1{margin:0;font-size:27px;line-height:1.2}h2{font-size:17px;margin:0 0 13px}p{line-height:1.48;font-size:14px;margin:10px 0}a{color:#9fd7ff}
+.muted{color:#a5b1c9}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:#9caac7}
+.notice{border-radius:10px;background:#352518;border:1px solid #80562a;color:#ffdc9f;padding:12px;font-size:14px;line-height:1.5;margin:12px 0}
+.notice.good{background:#133127;border-color:#34795e;color:#b2ebd1}.notice.bad{background:#3a2029;border-color:#8e4051;color:#ffd1d9}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.field{background:#10182b;border:1px solid #33435c;padding:11px;border-radius:10px}
+.field label{font-size:12px;color:#adbad3;display:block;margin-bottom:7px}.field input{color:#fff;background:#131f37;border:1px solid #586787;border-radius:7px;width:100%;padding:9px 8px;font-size:18px;font-weight:700;outline-offset:2px}
+.field button{font-size:12px;margin-top:9px;background:#283958;color:#dde8fb;border:1px solid #425a83;padding:6px 8px;border-radius:6px;cursor:pointer}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.stat{border:1px solid #29334e;border-radius:8px;padding:10px;background:#10182b}.stat strong{display:block;font-size:16px;margin-top:4px}.stat small{font-size:11px;color:#9ba9c3}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}.btn{display:inline-flex;align-items:center;justify-content:center;background:#3886fb;color:white;border:1px solid #5798fb;padding:11px 14px;border-radius:9px;cursor:pointer;text-decoration:none;font-size:14px;font-weight:700;min-height:43px}.btn.secondary{background:#202f4c;border-color:#40547b}.btn:disabled{opacity:.4;cursor:not-allowed}
+.steps{margin:0;padding-left:22px}.steps li{padding:0 0 11px 5px;line-height:1.5;font-size:14px}.mini{font-size:12px;color:#a5b1c9}.hide{display:none!important}
+@media(max-width:440px){h1{font-size:23px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:14px}.field input{font-size:16px}}
+</style>
+</head>
+<body><main>
+<div class="top"><div class="brand">📈 Alpaca Scanner</div><span class="pill">SOLO PAPER TRADING</span></div>
+<section class="card">
+ <div class="eyebrow">Scheda precompilata · Non è un ordine</div>
+ <h1 id="title">Caricamento dati…</h1>
+ <p class="muted" id="origin"></p>
+ <div class="notice bad hide" id="invalid"></div>
+ <div class="notice hide" id="stale"></div>
+ <div class="notice" style="background:#19283a;border-color:#416c90;color:#c9e9ff">Questa pagina <b>non legge prezzi in tempo reale, non accede al tuo account e non invia ordini</b>. I valori derivano dal messaggio Telegram e possono non essere più validi. Controlla sempre il grafico.</div>
+</section>
+<section class="card" id="tradeContent">
+ <h2>1. Controlla e copia i valori</h2>
+ <p class="mini">Puoi correggere ingresso, stop, target e quantità prima di copiarli. Se cambi il prezzo d'ingresso, i calcoli vengono aggiornati.</p>
+ <div class="grid">
+  <div class="field"><label for="entry">Ingresso indicativo · USD</label><input id="entry" type="number" min="0" step="any" inputmode="decimal"><button data-copy="entry">Copia ingresso</button></div>
+  <div class="field"><label for="qty">Quantità · azioni intere</label><input id="qty" type="number" min="1" step="1" inputmode="numeric"><button data-copy="qty">Copia quantità</button></div>
+  <div class="field"><label for="stop">Stop Loss · USD</label><input id="stop" type="number" min="0" step="any" inputmode="decimal"><button data-copy="stop">Copia stop</button></div>
+  <div class="field"><label for="target">Take Profit · USD</label><input id="target" type="number" min="0" step="any" inputmode="decimal"><button data-copy="target">Copia target</button></div>
+ </div>
+ <p class="mini" id="timestamp"></p>
+ <div class="stats">
+  <div class="stat"><small>Capitale stimato</small><strong id="capitalCalc">—</strong></div>
+  <div class="stat"><small>Perdita teorica + costi</small><strong id="riskCalc">—</strong></div>
+  <div class="stat"><small>R/R netto stimato</small><strong id="rrCalc">—</strong></div>
+ </div>
+ <div class="notice hide" id="checks"></div>
+ <div class="actions">
+  <button class="btn" id="copyAll" type="button">📋 Copia riepilogo</button>
+  <a class="btn secondary" id="tv" href="https://www.tradingview.com/chart/" target="_blank" rel="noopener noreferrer">📊 Apri grafico TradingView 5m</a>
+ </div>
+ <p class="mini">Modello: cambio EUR/USD del segnale, 1 € per ordine e slippage teorico 0,1% per lato, almeno 0,01 $. Non sono costi reali né un vincolo di perdita garantito. Il saldo e le posizioni aperte su TradingView non sono noti.</p>
+</section>
+<section class="card"><h2>2. Dove cliccare su TradingView (da PC)</h2>
+<ol class="steps">
+<li>Apri il grafico con il pulsante sopra. Controlla che ticker e borsa corrispondano alla notifica.</li>
+<li>Premi <b>Trade</b> nella barra superiore, scegli <b>Paper Trading</b>, poi <b>Connetti</b>. Controlla che NON sia selezionato un broker reale.</li>
+<li>Attendi che il <b>trigger sia confermato</b>. Se il prezzo si è allontanato troppo, salta l'operazione. Un ordine <b>Buy Limit sopra il prezzo corrente</b> può eseguire subito: non usarlo per aspettare un breakout.</li>
+<li>Quando le condizioni sono ancora valide, premi <b>Acquista / Buy</b>. Nel ticket seleziona <b>Mercato</b> (esecuzione immediata, prezzo non garantito) oppure <b>Limite</b> (prezzo massimo pagabile, esecuzione non garantita).</li>
+<li>Imposta <b>Quantità</b>, <b>Stop Loss</b> e <b>Take Profit</b> copiandoli dalla scheda. Se TradingView non accetta i decimali del prezzo, adeguali al tick valido e <b>ricalcola qui il rischio</b> prima di confermare.</li>
+<li>Con il <b>trading con un clic disattivato</b>, verifica l'anteprima, poi conferma solo nel <b>Paper Trading</b>. In <b>Posizioni</b> controlla l'effettiva presenza di TP e SL.</li>
+</ol>
+<div class="notice">⚠️ Se imposti un ordine di ingresso <b>Stop</b> o <b>Stop-Limit</b> prima del breakout, TradingView non permette attualmente di allegare TP/SL nel ticket d'ingresso. Per iniziare, usa soltanto procedure che ti consentano di verificare subito le protezioni.</div>
+<p class="mini">Da smartphone i pulsanti possono essere in posizioni diverse; apri il grafico e usa il ticket Buy/Sell. Non attivare l'opzione di invio immediato degli ordini.</p>
+</section>
+<section class="card"><h2>3. Prima di simulare, verifica</h2>
+<p>☐ Dati del segnale recenti e candela 5 minuti verificata sul grafico</p>
+<p>☐ Conto <b>Paper Trading</b> selezionato</p>
+<p>☐ Nessun altro ordine/posizione che consumi il budget demo</p>
+<p>☐ Prezzi compatibili con il tick del titolo, spread e slippage accettabili</p>
+<p>☐ Capitale disponibile entro 400 € e rischio teorico aggregato entro 12 €</p>
+<p class="mini">Il valore 12 € è un obiettivo del modello, non un limite garantito. Uno stop può eseguire peggio del prezzo previsto. Scheda educativa: nessun invio di ordini, nessun tracciamento, nessuna API finanziaria.</p>
+</section>
+</main>
+<script>
+'use strict';
+const p = new URLSearchParams(location.search);
+const byId = id=>document.getElementById(id);
+const formatEUR = x=>Number.isFinite(x)?x.toLocaleString('it-IT',{style:'currency',currency:'EUR'}):'—';
+const nice = x=>Number.isFinite(x)?x.toLocaleString('it-IT',{maximumFractionDigits:2,minimumFractionDigits:2}):'—';
+const ticker=(p.get('ticker')||'').toUpperCase(), ex=p.get('ex')||'', side=p.get('side')||'LONG';
+const legit=/^[A-Z][A-Z0-9.-]{0,8}$/.test(ticker)&&['NASDAQ','NYSE',''].includes(ex)&&side==='LONG';
+const origin=(p.get('origin')||'NOSTRA').slice(0,30), strategy=(p.get('strategy')||'').slice(0,60);
+const num=name=>Number(p.get(name));
+const signalTs=p.get('ts')||''; const date=signalTs ? new Date(signalTs):new Date(NaN);
+const fx=num('fx'); const maxQty=num('qty');
+function notice(id,txt,kind){const n=byId(id);n.textContent=txt;n.classList.remove('hide','good','bad');if(kind)n.classList.add(kind)}
+if(!legit || !Number.isFinite(date.getTime()) || ![num('entry'),num('stop'),num('target'),num('qty'),fx].every(x=>Number.isFinite(x)&&x>0)|| !Number.isInteger(maxQty)||maxQty>100000 || fx<0.2 || fx>10){
+  notice('invalid','I parametri della scheda sono incompleti o non validi. Non utilizzare questi valori.','bad');
+  byId('tradeContent').classList.add('hide'); byId('title').textContent='Scheda non valida';
+}else{
+  byId('title').textContent=`${ticker} · ${side} · DEMO`;
+  byId('origin').textContent=`Strategia ${origin}: ${strategy.replaceAll('_',' ')} · ${ex||'Borsa da verificare'}`;
+  for(const [id,param] of [['entry','entry'],['qty','qty'],['stop','stop'],['target','target']])byId(id).value=p.get(param)||'';
+  byId('timestamp').textContent=`Timestamp candela IEX del segnale: ${date.toLocaleString('it-IT',{timeZone:'Europe/Rome',dateStyle:'medium',timeStyle:'short'})} (ora italiana). Ultimo controllo aggiornamento: manuale sul grafico.`;
+  const tvsymbol=(ex ? ex+':' : '')+ticker;
+  byId('tv').href='https://www.tradingview.com/chart/?'+new URLSearchParams({symbol:tvsymbol,interval:'5'}).toString();
+  function recalc(){
+    const e=Number(byId('entry').value),s=Number(byId('stop').value),t=Number(byId('target').value),q=Number(byId('qty').value);
+    const old=(Date.now()-date.getTime())/60000;
+    const timeOk=old>=-5&&old<=20;
+    const valsOk=[e,s,t,q].every(x=>Number.isFinite(x)&&x>0) && Number.isInteger(q)&&q<=maxQty&&e>s&&t>e;
+    let risk=NaN,cap=NaN,rr=NaN;
+    const notes=[];
+    if(!timeOk){
+      notice('stale',old>20?'Segnale vecchio: sono passati più di 20 minuti dalla candela 5m. Questa scheda è solo uno storico: non inviare ordini sulla base di questi prezzi.':'Ora del dispositivo o segnale da verificare: nessuna operatività suggerita.','bad');
+    }else{notice('stale','Segnale recente secondo l’orologio del dispositivo. È comunque obbligatoria la verifica del prezzo su TradingView.','good')}
+    if(!valsOk)notes.push('Controlla prezzi e quantità: per un long serve Stop < Ingresso < Target e quantità intera non superiore alla proposta.');
+    if(valsOk){
+      const entryFill=e+Math.max(.01,e*.001), stopFill=s-Math.max(.01,s*.001);
+      const targetFill=t-Math.max(.01,entryFill*.001);
+      cap=q*entryFill/fx+1;
+      risk=q*(entryFill-stopFill)/fx+2;
+      const reward=q*(targetFill-entryFill)/fx-2;
+      rr=risk>0?reward/risk:NaN;
+      if(cap>400)notes.push('Capitale stimato oltre 400 €: riduci quantità o salta.');
+      if(risk>12)notes.push('Rischio teorico della singola idea oltre 12 €: non procedere.');
+      if(rr<2)notes.push('Rendimento/rischio netto stimato sotto 2:1: il prezzo è cambiato troppo.');
+      const hasFractions=[e,s,t].some(x=>x>=1 && Math.abs(x*100-Math.round(x*100))>1e-6);
+      if(hasFractions)notes.push('ATTENZIONE: almeno un prezzo ha più di due decimali sopra 1 USD. TradingView potrebbe non accettarlo: controlla il tick del titolo, modifica i livelli e ricalcola.');
+    }
+    byId('capitalCalc').textContent=formatEUR(cap);
+    byId('riskCalc').textContent=formatEUR(risk);
+    byId('rrCalc').textContent=Number.isFinite(rr)?nice(rr)+':1':'—';
+    byId('checks').classList.toggle('hide',notes.length===0);
+    byId('checks').classList.toggle('bad',notes.length>0);
+    byId('checks').textContent=notes.join(' ');
+    byId('copyAll').disabled=!valsOk || !timeOk;
+    return {e,s,t,q,cap,risk,rr,old};
+  }
+  async function copy(text){
+    try{await navigator.clipboard.writeText(text)}catch(err){
+      const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.top='-1000px';document.body.append(ta);ta.select();document.execCommand('copy');ta.remove();
+    }
+  }
+  document.querySelectorAll('[data-copy]').forEach(btn=>btn.addEventListener('click',async()=>{const id=btn.dataset.copy;await copy(byId(id).value);const prev=btn.textContent;btn.textContent='✓ Copiato';setTimeout(()=>btn.textContent=prev,1200)}));
+  byId('copyAll').addEventListener('click',async()=>{
+    const x=recalc();if(!Number.isInteger(x.q)||x.q<1)return;
+    const data=`SOLO DEMO ${ticker} ${side} (${ex||'borsa da verificare'}) | ${origin}: ${strategy}\nIngresso USD: ${x.e}\nQuantità: ${x.q}\nStop USD: ${x.s}\nTarget USD: ${x.t}\nCapitale modello EUR: ${nice(x.cap)}\nRischio modello EUR: ${nice(x.risk)}\nR/R netto modello: ${nice(x.rr)}\nSegnale IEX: ${signalTs}\nConfermare prezzo e protezioni sul Paper Trading. NON è un ordine.`;
+    await copy(data);byId('copyAll').textContent='✓ Riepilogo copiato';setTimeout(()=>byId('copyAll').textContent='📋 Copia riepilogo',1400);
+  });
+  ['entry','stop','target','qty'].forEach(id=>byId(id).addEventListener('input',recalc));
+  recalc();setInterval(recalc,60000);
+}
+</script>
+</body>
+</html>
