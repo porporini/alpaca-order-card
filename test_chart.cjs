@@ -3,7 +3,7 @@ const html=fs.readFileSync(__dirname+'/chart.html','utf8');const code=html.match
 let strokes=0;const labels=[];const context=new Proxy({},{get:(t,k)=>k==='stroke'?()=>strokes++:k==='fillText'?(text)=>labels.push(text):()=>{}});
 const node={getContext:()=>context};const nodes={};
 const ctx={Date,Number,Math,JSON,Array,Error,Uint8Array,Blob,DecompressionStream,atob,URLSearchParams,
- document:{getElementById:id=>id==='chart'?node:(nodes[id]??={textContent:''})},location:{hash:''}};vm.createContext(ctx);vm.runInContext(code+'\nglobalThis.api={validate,decode,draw,renderDetails};',ctx);
+ document:{getElementById:id=>id==='chart'?node:(nodes[id]??={textContent:''})},location:{hash:''}};vm.createContext(ctx);vm.runInContext(code+'\nglobalThis.api={validate,decode,draw,renderDetails,pineSource};',ctx);
 const data={symbol:'ACMR',exchange:'NASDAQ',bars:[[1793277000,10,10.2,9.8,10.1,1000,10,9.9,10.05,52,.2]],entry:10,stop:9.8,target:10.8,fib:[9.5,10.5],created:'2026-10-29T15:00:00Z'};
 (async()=>{
  const encoded=zlib.deflateSync(Buffer.from(JSON.stringify(data))).toString('base64url');
@@ -22,5 +22,6 @@ const data={symbol:'ACMR',exchange:'NASDAQ',bars:[[1793277000,10,10.2,9.8,10.1,1
  assert.throws(()=>ctx.api.validate({...data,bars:[]}));assert.throws(()=>ctx.api.validate({...executed,direction:'BAD'}));
  assert.throws(()=>ctx.api.validate({...executed,filled_qty:0}));assert.throws(()=>ctx.api.validate({...executed,filled_at:'bad'}));
  ctx.api.renderDetails(data);assert.match(nodes.title.textContent,/LONG/);assert.equal(nodes['entry-label'].textContent,'Ingresso pianificato');
- console.log('Chart snapshot, execution, direction, broker/plan labels and validation checks passed');
+ const pine=ctx.api.pineSource(executed);assert.ok(pine.startsWith('//@version=6'));assert.ok(pine.includes('input.float(10.1234'));assert.ok(pine.includes('syminfo.ticker == \"ACMR\"'));assert.ok(pine.includes('SHORT - Entrata media'));assert.equal((pine.match(/line.new/g)||[]).length,3);assert.equal((pine.match(/label.new/g)||[]).length,3);assert.ok(!pine.includes('strategy.entry'));assert.throws(()=>ctx.api.pineSource(data));
+ console.log('Chart snapshot, executed levels, direction, broker/plan labels and Pine export checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1});
