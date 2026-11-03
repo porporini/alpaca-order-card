@@ -92,7 +92,9 @@ renderDetails=function(data){renderBase(data);const exits=data.exits||[];
  if(data.entry_deadline)document.getElementById('plan-note').textContent+=' Scadenza per APRIRE: '+new Date(data.entry_deadline).toLocaleString('it-IT',{timeZone:'Europe/Rome'})+' Italia. Non è una chiusura temporale della posizione.';
 };
 function draw(data){
- const cv=document.getElementById('chart'),g=cv.getContext('2d'),bars=data.bars,n=Math.max(1,bars.length),left=12,right=875;
+ const session=t=>new Date(t).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+ const localBars=data.kind==='EXECUTION'?data.bars.filter(b=>session(b[0]*1000)===session(data.filled_at)):data.bars;
+ const cv=document.getElementById('chart'),g=cv.getContext('2d'),bars=localBars,n=Math.max(1,bars.length),left=12,right=875;
  g.clearRect(0,0,1100,660);g.font='12px system-ui';
  const fib=data.fib.every(Number.isFinite)&&data.fib[0]!==data.fib[1]?[.236,.382,.5,.618,.786].map(r=>[r,data.fib[1]-(data.fib[1]-data.fib[0])*r]):[];
  const prices=bars.flatMap(b=>[b[2],b[3],b[6],b[7],b[8]]).filter(Number.isFinite).concat([Number(data.entry),Number(data.stop),Number(data.target),...(data.exits||[]).map(f=>f.price)],fib.map(x=>x[1]));
@@ -102,7 +104,7 @@ function draw(data){
  const tx=t=>left+20+(t-lo)/(hi-lo)*(right-left-40);
  const px=i=>bars.length?tx(bars[i][0]*1000):left+(right-left)/2,py=v=>30+(max-v)/(max-min)*340;
  function line(values,color,y){g.strokeStyle=color;g.lineWidth=1.6;g.beginPath();let pen=false;values.forEach((v,i)=>{if(!Number.isFinite(v)){pen=false;return;}if(pen)g.lineTo(px(i),y(v));else g.moveTo(px(i),y(v));pen=true;});g.stroke();}
- function horizontal(value,label,color,solid=false){g.strokeStyle=color;g.lineWidth=solid?2.2:1;g.setLineDash(solid?[]:[4,4]);g.beginPath();g.moveTo(left,py(value));g.lineTo(right,py(value));g.stroke();g.setLineDash([]);g.fillStyle=color;g.fillText(label+' '+value.toFixed(value<1?4:3),right+6,py(value)+4);}
+ function horizontal(value,label,color,solid=false,offset=0){g.strokeStyle=color;g.lineWidth=solid?2.2:1;g.setLineDash(solid?[]:[4,4]);g.beginPath();g.moveTo(left,py(value));g.lineTo(right,py(value));g.stroke();g.setLineDash([]);g.fillStyle=color;g.fillText(label+' '+value.toFixed(value<1?4:3),right+6,py(value)+4+offset);}
  const entry=Number(data.entry);
  for(const [value,color] of [[Number(data.stop),'rgba(255,130,156,0.10)'],[Number(data.target),'rgba(106,217,182,0.10)']]){g.fillStyle=color;g.fillRect(left,Math.min(py(value),py(entry)),right-left,Math.abs(py(value)-py(entry)));}
  bars.forEach((b,i)=>{g.strokeStyle=g.fillStyle=b[4]>=b[1]?'#6ad9b6':'#ff829c';g.beginPath();g.moveTo(px(i),py(b[2]));g.lineTo(px(i),py(b[3]));g.stroke();g.fillRect(px(i)-Math.max(2,(right-left)/n*.28),Math.min(py(b[1]),py(b[4])),Math.max(4,(right-left)/n*.56),Math.max(1,Math.abs(py(b[1])-py(b[4]))));});
@@ -115,8 +117,9 @@ function draw(data){
   function vertical(t,label,color,level){const x=tx(Date.parse(t));g.strokeStyle=color;g.setLineDash([3,5]);g.beginPath();g.moveTo(x,18);g.lineTo(x,390);g.stroke();g.setLineDash([]);g.fillStyle=color;g.fillText(label+' '+clock(t),Math.min(right-170,Math.max(left,x+5)),level);}
   vertical(data.filled_at,data.direction==='SHORT'?'VENDITA SHORT':'ACQUISTO','#ffb85c',18);
   if(data.entry_deadline)vertical(data.entry_deadline,'Scadenza ingresso','#b7c7de',36);
-  (data.exits||[]).forEach((f,i)=>{horizontal(f.price,data.direction==='SHORT'?'Riacquisto':'Vendita uscita','#7ca8ff');vertical(f.time,(data.direction==='SHORT'?'RIACQUISTO ':'VENDITA ')+f.qty+' az.','#7ca8ff',54+i*16);g.fillStyle='#7ca8ff';g.fillRect(tx(Date.parse(f.time))-4,py(f.price)-4,8,8);});
+  (data.exits||[]).forEach((f,i)=>{horizontal(f.price,data.direction==='SHORT'?'Riacquisto':'Vendita uscita','#7ca8ff',false,Math.abs(f.price-Number(data.target))<.00001?17:0);vertical(f.time,(data.direction==='SHORT'?'RIACQUISTO ':'VENDITA ')+f.qty+' az.','#7ca8ff',54+i*16);g.fillStyle='#7ca8ff';g.fillRect(tx(Date.parse(f.time))-4,py(f.price)-4,8,8);});
  }
+ const vmax=Math.max(1,...bars.map(b=>b[5]||0));bars.forEach((b,i)=>{g.fillStyle=b[4]>=b[1]?'#275c54':'#633344';const h=(b[5]||0)/vmax*22;g.fillRect(px(i)-2,404-h,4,h);});
  const ry=v=>450+(100-v)/100*90;g.fillStyle='#dbe8fc';g.fillText('RSI14',12,420);[30,70].forEach(v=>{g.strokeStyle='#364762';g.beginPath();g.moveTo(left,ry(v));g.lineTo(right,ry(v));g.stroke();});line(bars.map(b=>b[9]),'#a5a4ff',ry);
  const ats=bars.map(b=>b[10]).filter(Number.isFinite),am=Math.max(.00001,...ats);g.fillStyle='#dbe8fc';g.fillText('ATR14 · USD',12,565);line(bars.map(b=>b[10]),'#ffb85c',v=>630-v/am*55);
  if(!bars.length){g.fillStyle='#b7c7de';g.fillText('Candele non disponibili · livelli dell’operazione',20,650);return;}
