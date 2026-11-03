@@ -54,7 +54,7 @@ function pineSource(data){
  'entryPrice = input.float('+Number(data.entry)+', "Entrata media eseguita", minval=0.0001)',
  'stopPrice = input.float('+Number(data.stop)+', "Stop loss", minval=0.0001)',
  'targetPrice = input.float('+Number(data.target)+', "Take profit", minval=0.0001)',
- 'showTimes = input.bool('+Boolean(data.position_deadline||data.entry_deadline)+', "Mostra verticali degli orari")',
+ 'showTimes = input.bool(true, "Mostra verticali degli orari")',
  'tradeTime = input.time('+Date.parse(data.filled_at)+', "Ora entrata")',
  'correctSymbol = syminfo.ticker == '+JSON.stringify(data.symbol),
  'plot(correctSymbol ? entryPrice : na, title="'+side+' - Entrata media", color=color.orange, linewidth=2, trackprice=true)',
