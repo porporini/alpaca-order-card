@@ -23,10 +23,10 @@ const data={symbol:'ACMR',exchange:'NASDAQ',bars:[[1793277000,10,10.2,9.8,10.1,1
  assert.throws(()=>ctx.api.validate({...executed,filled_qty:0}));assert.throws(()=>ctx.api.validate({...executed,filled_at:'bad'}));
  ctx.api.renderDetails(data);assert.match(nodes.title.textContent,/LONG/);assert.equal(nodes['entry-label'].textContent,'Ingresso pianificato');
  const pine=ctx.api.pineSource(executed);assert.ok(pine.startsWith('//@version=6'));assert.ok(pine.includes('input.float(10.1234'));assert.ok(pine.includes('syminfo.ticker == \"ACMR\"'));assert.ok(pine.includes('SHORT - Entrata media'));assert.equal((pine.match(/plot\(/g)||[]).length,3);assert.equal((pine.match(/label.new/g)||[]).length,0);assert.ok(pine.includes('input.bool(false'));assert.ok(pine.includes('trackprice=true'));assert.ok(!pine.includes('strategy.entry'));assert.throws(()=>ctx.api.pineSource(data));
- const closed={...executed,entry_deadline:'2026-10-29T15:16:00Z',exits:[{qty:3,price:9.5,time:'2026-10-29T15:31:00Z'}]};
+ const closed={...executed,position_deadline:'2026-10-29T19:55:00Z',entry_deadline:'2026-10-29T15:16:00Z',exits:[{qty:3,price:9.5,time:'2026-10-29T15:31:00Z'}]};
  ctx.api.validate(closed);ctx.api.draw(closed);ctx.api.renderDetails(closed);
  assert.match(nodes.execution.textContent,/POSIZIONE CHIUSA/);assert.match(nodes['plan-note'].textContent,/Non è una chiusura/);
- const full=ctx.api.pineSource(closed);assert.match(full,/RIACQUISTO/);assert.equal((full.match(/plot\(/g)||[]).length,4);assert.ok(!full.includes('label.new'));assert.ok(!full.includes('table.new'));assert.match(full,/SCADENZA INGRESSO/);assert.ok(full.includes(String(Date.parse(closed.exits[0].time))));
+ const full=ctx.api.pineSource(closed);assert.match(full,/RIACQUISTO/);assert.equal((full.match(/plot\(/g)||[]).length,4);assert.ok(!full.includes('label.new'));assert.ok(!full.includes('table.new'));assert.match(full,/SCADENZA INGRESSO/);assert.match(full,/Avvio chiusura fine seduta/);assert.ok(full.includes('input.bool(true'));assert.ok(full.includes(String(Date.parse(closed.position_deadline))));assert.ok(full.includes(String(Date.parse(closed.exits[0].time))));
  assert.throws(()=>ctx.api.validate({...closed,exits:[{qty:4,price:9.5,time:closed.filled_at}]}));
  assert.throws(()=>ctx.api.validate({...closed,entry_deadline:'bad'}));
  console.log('Chart snapshot, executed levels, direction, broker/plan labels and Pine export checks passed');

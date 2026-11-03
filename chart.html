@@ -12,6 +12,7 @@ function validate(data){
  if(data.kind!==undefined&&!['PLAN','EXECUTION'].includes(data.kind))throw Error('Tipo grafico non valido');
  if(data.direction!==undefined&&!['LONG','SHORT'].includes(data.direction))throw Error('Direzione non valida');
  if(data.kind==='EXECUTION'&&(!Number.isFinite(data.filled_qty)||data.filled_qty<=0||!Number.isFinite(Date.parse(data.filled_at))))throw Error('Esecuzione non valida');
+ if(data.position_deadline!==undefined&&!Number.isFinite(Date.parse(data.position_deadline)))throw Error('Fine seduta non valida');
  if(data.entry_deadline!==undefined&&!Number.isFinite(Date.parse(data.entry_deadline)))throw Error('Scadenza non valida');
  if(data.exits!==undefined&&(!Array.isArray(data.exits)||data.exits.length>30||data.exits.some(f=>!Number.isFinite(f.qty)||f.qty<=0||!Number.isFinite(f.price)||f.price<=0||!Number.isFinite(Date.parse(f.time)))||data.exits.reduce((a,f)=>a+f.qty,0)>data.filled_qty))throw Error('Uscite non valide');
  if(Number(data.stop)===Number(data.target))throw Error('Stop e target uguali');
@@ -53,13 +54,14 @@ function pineSource(data){
  'entryPrice = input.float('+Number(data.entry)+', "Entrata media eseguita", minval=0.0001)',
  'stopPrice = input.float('+Number(data.stop)+', "Stop loss", minval=0.0001)',
  'targetPrice = input.float('+Number(data.target)+', "Take profit", minval=0.0001)',
- 'showTimes = input.bool(false, "Mostra verticali degli orari")',
+ 'showTimes = input.bool('+Boolean(data.position_deadline||data.entry_deadline)+', "Mostra verticali degli orari")',
  'tradeTime = input.time('+Date.parse(data.filled_at)+', "Ora entrata")',
  'correctSymbol = syminfo.ticker == '+JSON.stringify(data.symbol),
  'plot(correctSymbol ? entryPrice : na, title="'+side+' - Entrata media", color=color.orange, linewidth=2, trackprice=true)',
  'plot(correctSymbol ? stopPrice : na, title="Stop loss", color=color.red, linewidth=2, trackprice=true)',
  'plot(correctSymbol ? targetPrice : na, title="Take profit", color=color.green, linewidth=2, trackprice=true)'];
  const times=[['tradeTime','color.orange']];
+ if(data.position_deadline){out.push('sessionExitTime = input.time('+Date.parse(data.position_deadline)+', "Avvio chiusura fine seduta (non fill garantito)")');times.push(['sessionExitTime','color.purple']);}
  if(data.entry_deadline){out.push('deadlineTime = input.time('+Date.parse(data.entry_deadline)+', "SCADENZA INGRESSO (non uscita)")');times.push(['deadlineTime','color.gray']);}
  (data.exits||[]).forEach((f,i)=>{const key='exit'+i;out.push(key+'Price = input.float('+f.price+', '+JSON.stringify((side==='SHORT'?'RIACQUISTO':'VENDITA')+' '+f.qty+' azioni')+', minval=0.0001)',key+'Time = input.time('+Date.parse(f.time)+', "Ora uscita '+(i+1)+'")','plot(correctSymbol ? '+key+'Price : na, title="Uscita '+(i+1)+'", color=color.blue, linewidth=2, trackprice=true)');times.push([key+'Time','color.blue']);});
  out.push('var bool drawn = false','if barstate.islast and correctSymbol and showTimes and not drawn');
@@ -71,6 +73,7 @@ renderDetails=function(data){renderBase(data);const exits=data.exits||[];
  if(exits.length){const qty=exits.reduce((a,f)=>a+f.qty,0),avg=exits.reduce((a,f)=>a+f.qty*f.price,0)/qty;
  const gross=exits.reduce((a,f)=>a+(f.price-Number(data.entry))*f.qty*(data.direction==='SHORT'?-1:1),0);
  document.getElementById('execution').textContent+=' · Uscite: '+qty+' azioni a prezzo medio '+price(avg)+' · '+(qty===data.filled_qty?'POSIZIONE CHIUSA':'USCITA PARZIALE')+' · risultato lordo realizzato '+price(gross)+' (prima dei costi)';}
+ if(data.position_deadline)document.getElementById('plan-note').textContent+=' Avvio chiusura fine seduta: '+new Date(data.position_deadline).toLocaleString('it-IT',{timeZone:'Europe/Rome'})+' Italia; esecuzione non garantita a quell’istante.';
  if(data.entry_deadline)document.getElementById('plan-note').textContent+=' Scadenza per APRIRE: '+new Date(data.entry_deadline).toLocaleString('it-IT',{timeZone:'Europe/Rome'})+' Italia. Non è una chiusura temporale della posizione.';
 };
 function draw(data){
